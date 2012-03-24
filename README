@@ -1,7 +1,7 @@
 ABOUT
 
-Bulk email program that downloads JSON content and sends a customized
-template to users.
+Bulk email program that downloads JSON content and sends a customized template 
+to users.
 
 REQUIREMENTS
 
@@ -14,4 +14,5 @@ gd -o recmail src/
 
 RUN
 
-recmail -config=testdata/config.json -data=testdata/data.csv -template=testdate/recmail.html
+recmail -config=testdata/config.json -data=testdata/data.csv \
+-template=testdate/recmail.html
