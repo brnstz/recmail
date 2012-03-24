@@ -1,0 +1,17 @@
+ABOUT
+
+Bulk email program that downloads JSON content and sends a customized
+template to users.
+
+REQUIREMENTS
+
+* Go: http://golang.org/doc/install.html
+* godag: http://code.google.com/p/godag/wiki/Install
+
+BUILD
+
+gd -o recmail src/
+
+RUN
+
+recmail -config=testdata/config.json -data=testdata/data.csv -template=testdate/recmail.html

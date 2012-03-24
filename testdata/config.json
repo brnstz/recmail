@@ -1,0 +1,5 @@
+{
+    "RecUrl": "http://rec-svc.stg.ec2.nytimes.com/?uid=%s",
+    "SmtpServer": "spmta.prvt.nytimes.com:25",
+    "SmtpFrom": "brian.seitz@nytimes.com"
+}
