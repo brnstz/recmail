@@ -14,6 +14,10 @@ import (
 //    "time"
 )
 
+const (
+    numRoutines = 15
+)
+
 type RecConfig struct {
     RecUrl     string
     SmtpServer string
@@ -44,7 +48,20 @@ type RecResponse struct {
 
 }
 
-func (mailer *RecMailer) processOneRecord(id string, email string) {
+func (mailer *RecMailer) launchProcessor(recsChan chan []string, respChan chan int) {
+    for {
+        rec := <- recsChan
+        //fmt.Printf("Trying: %s, %s\n", rec[0], rec[1])
+        resp := mailer.processOneRecord(rec[0], rec[1])
+
+        if resp == 0 {
+            fmt.Printf("Success for %s, %s\n", rec[0], rec[1])
+        }
+        //respChan <- resp
+    }
+}
+
+func (mailer *RecMailer) processOneRecord(id string, email string) int {
     var (
         recResponse RecResponse
     )
@@ -52,26 +69,30 @@ func (mailer *RecMailer) processOneRecord(id string, email string) {
     fullUrl := fmt.Sprintf(mailer.Config.RecUrl, id)
     resp, err := mailer.Http.Get(fullUrl)
     defer resp.Body.Close()
-    // FIXME: not a fatal error
+
     if err != nil {
         fmt.Printf("Unable to get URL %s\n", fullUrl)
         fmt.Println(err)
-        os.Exit(1)
+        return 1
     }
    
     readBytes, err := ioutil.ReadAll(resp.Body)
-    // FIXME: not a fatal error
     if err != nil {
         fmt.Printf("Unable to read from URL %s\n", fullUrl)
         fmt.Println(err)
-        os.Exit(1)
+        return 1
     }
 
     err = json.Unmarshal(readBytes, &recResponse)
     if (err != nil) {
-        fmt.Println("Unable to parse JSON http resp")
+        fmt.Printf("Unable to parse JSON http resp for user %s\n", id)
         fmt.Println(err)
-        os.Exit(1)
+        return 1
+    }
+
+    if len(recResponse.Suggestions) == 0 {
+        fmt.Printf("No suggestions for user %s\n", id)
+        return 1
     }
 
     emails := make([]string, 1)
@@ -91,14 +112,15 @@ func (mailer *RecMailer) processOneRecord(id string, email string) {
     buff := new(bytes.Buffer)
     mailer.Template.Execute(buff, edata)
 
-
     err = smtp.SendMail(mailer.Config.SmtpServer, nil, mailer.Config.SmtpFrom, emails, buff.Bytes())
 
     if err != nil {
-        fmt.Println("There was an error")
+        fmt.Printf("There was an error sending for user %s\n", id)
         fmt.Println(err)
+        return 1
     }
-
+    
+    return 0
 }
 
 func parseArgs() (RecConfig, string, *template.Template) {
@@ -142,6 +164,13 @@ func parseArgs() (RecConfig, string, *template.Template) {
 
 }
 
+func readResults(respChan chan int) {
+    for {
+        resp := <- respChan
+        fmt.Println(resp)
+    }
+}
+
 func main() {
 
     recConfig, dataFile, t := parseArgs()
@@ -160,22 +189,28 @@ func main() {
         fmt.Println(err)
         os.Exit(1)
     }
-
-    dataCsvReader := csv.NewReader(dataReader)
     
-    i := 0
-    for {
-        i += 1
+    dataCsvReader := csv.NewReader(dataReader)
+    recsChan := make(chan []string)
+    respChan := make(chan int)
+  
+    for i := 0; i < numRoutines; i++ {
+        go mailer.launchProcessor(recsChan, respChan)
+    }
+
+    for j := 0; ; j++ {
         recs, err := dataCsvReader.Read()
-        
+
         if (err == os.EOF) {
             break
         } else if (err != nil) {
-            fmt.Printf("Error reading data file %s at line %d\n", dataFile, i)
+            fmt.Printf("Error reading data file %s at line %d\n", dataFile, j)
             fmt.Println(err)
             os.Exit(1)
         }
 
-        mailer.processOneRecord(recs[0], recs[1])
+        recsChan <- recs
     }
+
+    //go readResults(respChan)
 }
