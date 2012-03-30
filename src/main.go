@@ -15,7 +15,7 @@ import (
 )
 
 const (
-    numRoutines = 15
+    numRoutines = 10
 )
 
 type RecConfig struct {
@@ -68,13 +68,14 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
 
     fullUrl := fmt.Sprintf(mailer.Config.RecUrl, id)
     resp, err := mailer.Http.Get(fullUrl)
-    defer resp.Body.Close()
 
     if err != nil {
         fmt.Printf("Unable to get URL %s\n", fullUrl)
         fmt.Println(err)
         return 1
     }
+    
+    defer resp.Body.Close()
    
     readBytes, err := ioutil.ReadAll(resp.Body)
     if err != nil {
