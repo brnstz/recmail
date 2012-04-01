@@ -1,1 +1,1 @@
-gd -o recmail src && ./recmail -config=testdata/config.json -data=testdata/data-big.csv -template=testdata/recemail.html
+go build -o recmail src/*.go && ./recmail -config=testdata/config.json -data=testdata/data-small.csv -template=testdata/th-recemail.html

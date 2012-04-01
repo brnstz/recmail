@@ -5,14 +5,13 @@ to users.
 
 REQUIREMENTS
 
-* Go: http://golang.org/doc/install.html
-* godag: http://code.google.com/p/godag/wiki/Install
+* Go: http://golang.org/
 
 BUILD
 
-gd -o recmail src/
+go build -o recmail src/*.go
 
 RUN
 
-recmail -config=testdata/config.json -data=testdata/data.csv \
+./recmail -config=testdata/config.json -data=testdata/data.csv \
 -template=testdata/recmail.html
