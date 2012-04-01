@@ -1,0 +1,108 @@
+From: {{.FromAddress}}
+To: {{.ToAddress}}
+Subject: {{.Subject}}
+Content-Type: text/html; charset=utf8; format=flowed;
+Date: {{.Date}}
+
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+    <style type="text/css">
+    
+    a {color:#004276;text-decoration:none;}    
+    </style>
+
+</head>
+
+<body style="background-color:#fff">
+    
+<div id="NYTEmail" style="width:598px;border:1px solid #999;">
+    
+    <table cellpadding="0" cellspacing="0" id="header" style="font:12px georgia,serif;width:100%">
+        <tr>
+            <td style="padding:23px 10px 3px;border-bottom:2px solid black">
+                <div style="margin:0;float:left;font:14px georgia,serif;font-weight:bold;">
+                    <a href="http://www.nytimes.com"><img src="http://graphics8.nytimes.com/images/misc/nytlogo122x18.gif" width="122" height="18" border="0" alt="The New York Times" /></a>
+                </div>
+                <div style="margin:0;float:right;text-align:right;font:14px Georgia,serif;color:#000000;">
+                    March 31, 2012               
+                </div>
+
+                <div style="text-align: center">
+                    <h1 style="margin:0;font: bold 24px arial;color:black;text-decoration:none">
+                        Recommended for You    
+                    </h1>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <table cellpadding="0" cellspacing="0" id="content" style="padding: 0 0 10px; font:12px georgia,serif;margin-top:10px; margin-left:10px; margin-right:10px;">
+        {{range .RecResponse.Suggestions}}
+        <tr> 
+            <td valign="top" id="aColumn" style="color:#333;font-family: georgia,serif;width:588;border-bottom: 1px solid rgb(204, 204, 204);" colspan="2">
+            <div style="padding-top: 10px; padding-bottom: 10px;"> 
+                <div>
+                    <div style=""> 
+                        <h6 style="color:#999;font:10px Arial,sans-serif;margin:0;text-transform:uppercase;">
+                            {{.Section | html}}
+                         </h6>
+                        <a href="{{.Url | html}}" ><img src="{{.Thumbnail.Url | html}}" border="0" width="75" height="75" align="right" style="border: 0pt none; margin: 0pt 0pt 5px 5px;" /></a>    
+                        <h3 style="margin:0;font-size:14px;font-weight:bold;">
+                            <a style="color:#000; text-decoration:none;" href="{{.Url | html}}">{{.Title | html}}</a>
+                        </h3>
+                        <h6 style="color:#999;font:10px Arial,sans-serif;margin:0;">
+                            {{.Byline | html}}
+                         </h6>
+                        <div style="font-size: 12px; margin-top: 0pt;">
+
+                            <p style="font-size:12px; margin:0 0 12px; color:#000">{{.Abstract | html }}</p>
+                        </div> 
+                        <h6 style="color:#999;font:10px Arial,sans-serif;margin:0;">
+                        {{range .Des_facet}} {{ . | html }}
+                        {{end}}
+                         </h6>
+                    </div>
+                </div>  
+            </td>
+        </tr>
+        {{end}}
+    </table>
+
+
+    <table cellpadding="0" cellspacing="0" id="footer" style="font:11px Arial,Helvetica,sans-serif;width:598px;">
+        
+<tr>
+    <td colspan="2" style="color: #333; text-align:center">
+        <div style="padding:10px 10px 15px">
+            <h4 style="margin:0 0 10px 0; color:#333; font-size:11px; font-weight:bold; text-transform:none">About This E-Mail</h4>
+
+            <p style="margin:0">You received this message because you signed up for NYTimes.com's Recommended Articles newsletter. As a member of the TRUSTe privacy program, we are committed to protecting your privacy.</p>
+        </div>
+
+        <div style="padding:0; margin-top: 0; margin-bottom:12px; margin-left:0">
+            <span style="margin-left:0"><a style="display:inline;color:#004276;text-decoration: none;" href="http://www.nytimes.com/email">Manage Subscriptions</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276;text-decoration: none;" href="http://www.nytimes.com/profile.html">Change Your E-Mail</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276;text-decoration: none;" href="http://www.nytimes.com/ref/membercenter/help/privacy.html">Privacy Policy</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276;text-decoration: none;" href="mailto:feedback@nytimes.com">Contact</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276;text-decoration: none;" href="http://www.nytimes.com/adinfo">Advertise</a></span>
+        </div>
+    
+        <div style="background-color:#ededed; padding:10px 10px 10px 15px; margin-top: 0; margin-bottom:0px; margin-left:0; font-family: arial,helvetica,sans-serif; font-size:10px; color:#000000">
+            <span style="margin-left:0"><a style="display:inline;color:#004276; text-decoration:none;" href="http://www.nytimes.com/ref/membercenter/help/copyright.html">Copyright 2012</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276; text-decoration:none;" href="http://www.nytco.com">The New York Times Company</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276; text-decoration:none;" href="http://www.nytimes.com/ref/membercenter/help/privacy.html">Privacy Policy</a> | </span>
+            <span style="margin-left:0"><a style="display:inline;color:#004276; text-decoration:none;" href="http://www.nytimes.com">NYTimes.com 620 Eighth Avenue New York, NY 10018</a></span>
+        </div>
+    </td>
+</tr>
+ 
+    </table> 
+    <!-- Footer Ends -->
+
+    </table>
+    </div><!-- #NYTEmail -->
+</body>
+</html>
+
