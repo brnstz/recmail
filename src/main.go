@@ -3,25 +3,27 @@ package main
 import (
     "flag"
     "fmt"
-    "json"
+    "encoding/json"
     "io/ioutil"
-    "csv"
+    "encoding/csv"
     "os"
-    "http"
-    "template"
+    "net/http"
+    "html/template"
     "bytes"
-    "smtp"
-//    "time"
+    "net/smtp"
+    "io"
+    "time"
 )
 
 const (
-    numRoutines = 10
+    numRoutines = 1
 )
 
 type RecConfig struct {
     RecUrl     string
     SmtpServer string
     SmtpFrom   string
+    EnvelopeFrom   string
 }
 
 type RecMailer struct {
@@ -41,6 +43,15 @@ type EmailData struct {
 type RecSuggestions struct {
     Url string
     Title string
+    Abstract string
+    Section string
+    Byline string
+    Thumbnail RecThumbnail
+    Des_facet []string
+}
+
+type RecThumbnail struct {
+    Url string
 }
 
 type RecResponse struct {
@@ -95,20 +106,23 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
         fmt.Printf("No suggestions for user %s\n", id)
         return 1
     }
+    for recIndex := 0; recIndex < len(recResponse.Suggestions); recIndex++ {
+        if len(recResponse.Suggestions[recIndex].Thumbnail.Url) == 0 {
+            recResponse.Suggestions[recIndex].Thumbnail.Url = "http://graphics8.nytimes.com/images/misc/spacer.gif"
+        }
+    }
 
     emails := make([]string, 1)
     emails[0] = email
 
-    /* WTF, why doesn't this work?
-    localTime := time.LocalTime
+    localTime := time.Now()
     dateStr   := localTime.Format("%a, %d %b %Y %H:%M:%S %z")
-    */
     edata := new(EmailData)
-    edata.FromAddress = mailer.Config.SmtpFrom
+    edata.FromAddress = mailer.Config.EnvelopeFrom
     edata.ToAddress   = email
     edata.Subject     = "Recommendations for you"
     edata.RecResponse = recResponse
-    //edata.Date        = dateStr
+    edata.Date        = dateStr
 
     buff := new(bytes.Buffer)
     mailer.Template.Execute(buff, edata)
@@ -154,7 +168,7 @@ func parseArgs() (RecConfig, string, *template.Template) {
         os.Exit(1)
     }
 
-    t, err := template.ParseFile(templateFile)
+    t, err := template.ParseFiles(templateFile)
     if (err != nil) {
         fmt.Printf("Unable to parse template file %s\n", templateFile)
         fmt.Println(err)
@@ -184,12 +198,13 @@ func main() {
 
 
     dataReader, err := os.Open(dataFile)
-    defer dataReader.Close()
     if err != nil {
         fmt.Printf("Unable to open data file %s\n", dataFile)
         fmt.Println(err)
         os.Exit(1)
     }
+    
+    defer dataReader.Close()
     
     dataCsvReader := csv.NewReader(dataReader)
     recsChan := make(chan []string)
@@ -202,7 +217,7 @@ func main() {
     for j := 0; ; j++ {
         recs, err := dataCsvReader.Read()
 
-        if (err == os.EOF) {
+        if (err == io.EOF) {
             break
         } else if (err != nil) {
             fmt.Printf("Error reading data file %s at line %d\n", dataFile, j)
