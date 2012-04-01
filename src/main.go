@@ -16,7 +16,7 @@ import (
 )
 
 const (
-    numRoutines = 1
+    numRoutines = 30
 )
 
 type RecConfig struct {
@@ -68,7 +68,9 @@ func (mailer *RecMailer) launchProcessor(recsChan chan []string, respChan chan i
         if resp == 0 {
             fmt.Printf("Success for %s, %s\n", rec[0], rec[1])
         }
-        //respChan <- resp
+        //fmt.Println("hey! now thread")
+        respChan <- resp
+        //fmt.Println("hey! now thread 2")
     }
 }
 
@@ -208,25 +210,43 @@ func main() {
     
     dataCsvReader := csv.NewReader(dataReader)
     recsChan := make(chan []string)
-    respChan := make(chan int)
+    respChan := make(chan int, numRoutines)
   
     for i := 0; i < numRoutines; i++ {
         go mailer.launchProcessor(recsChan, respChan)
     }
 
-    for j := 0; ; j++ {
+    numLines := 0
+    for {
         recs, err := dataCsvReader.Read()
 
         if (err == io.EOF) {
             break
         } else if (err != nil) {
-            fmt.Printf("Error reading data file %s at line %d\n", dataFile, j)
+            fmt.Printf("Error reading data file %s at line %d\n", dataFile, numLines + 1)
             fmt.Println(err)
             os.Exit(1)
         }
+        
+        recsChan <- recs 
 
-        recsChan <- recs
+        numLines++
     }
+    // Infinite wait
+    //<-make(chan interface{}); 
 
+    finishedRequests := 0 
+    results := [...]int{0, 0}
+    for {
+        //fmt.Println("hey!")
+        result := <- respChan
+        //fmt.Println("hey! now")
+        results[result]++
+        finishedRequests++
+        if finishedRequests >= numLines {
+            fmt.Println(results)
+            break
+        }
+    }
     //go readResults(respChan)
 }
