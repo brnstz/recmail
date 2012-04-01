@@ -17,6 +17,7 @@ import (
 
 const (
     numRoutines = 30
+    chanBuff = 100
 )
 
 type RecConfig struct {
@@ -181,40 +182,20 @@ func parseArgs() (RecConfig, string, *template.Template) {
 
 }
 
-func readResults(respChan chan int) {
-    for {
-        resp := <- respChan
-        fmt.Println(resp)
-    }
-}
 
-func main() {
-
-    recConfig, dataFile, t := parseArgs()
-    client := new(http.Client)
-    mailer := new(RecMailer)
-
-    mailer.Config   = recConfig
-    mailer.Template = t
-    mailer.Http     = client
-
+func readDataFile(dataFile string, recsChan chan []string, doneReadingChan chan int) {
 
     dataReader, err := os.Open(dataFile)
+
     if err != nil {
         fmt.Printf("Unable to open data file %s\n", dataFile)
         fmt.Println(err)
         os.Exit(1)
     }
-    
+
     defer dataReader.Close()
-    
+
     dataCsvReader := csv.NewReader(dataReader)
-    recsChan := make(chan []string)
-    respChan := make(chan int, numRoutines)
-  
-    for i := 0; i < numRoutines; i++ {
-        go mailer.launchProcessor(recsChan, respChan)
-    }
 
     numLines := 0
     for {
@@ -232,8 +213,14 @@ func main() {
 
         numLines++
     }
-    // Infinite wait
-    //<-make(chan interface{}); 
+    
+    // FIXME
+    //doneReadingChan <- numLines
+}
+
+func readResults(respChan chan int, allRequestsDoneChan chan int) {
+    // FIXME: get this from file reader
+    numLines := 1000
 
     finishedRequests := 0 
     results := [...]int{0, 0}
@@ -245,8 +232,38 @@ func main() {
         finishedRequests++
         if finishedRequests >= numLines {
             fmt.Println(results)
+            allRequestsDoneChan <- 1
             break
         }
     }
+}
+
+func main() {
+
+    recConfig, dataFile, t := parseArgs()
+    client := new(http.Client)
+    mailer := new(RecMailer)
+
+    mailer.Config   = recConfig
+    mailer.Template = t
+    mailer.Http     = client
+    
+    recsChan := make(chan []string, chanBuff)
+    respChan := make(chan int, chanBuff)
+    doneReadingChan := make(chan int)
+    allRequestsDoneChan := make(chan int)
+  
+    for i := 0; i < numRoutines; i++ {
+        go mailer.launchProcessor(recsChan, respChan)
+    }
+
+    go readDataFile(dataFile, recsChan, doneReadingChan)
+
+    go readResults(respChan, allRequestsDoneChan)
+
+    <-allRequestsDoneChan
+    // Infinite wait
+    //<-make(chan interface{}); 
+
     //go readResults(respChan)
 }
