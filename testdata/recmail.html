@@ -46,21 +46,21 @@ Date: {{.Date}}
                 <div>
                     <div style=""> 
                         <h6 style="color:#999;font:10px Arial,sans-serif;margin:0;text-transform:uppercase;">
-                            {{.Section | html}}
+                            {{html .Section}}
                          </h6>
-                        <a href="{{.Url | html}}" ><img src="{{.Thumbnail.Url | html}}" border="0" width="75" height="75" align="right" style="border: 0pt none; margin: 0pt 0pt 5px 5px;" /></a>    
+                        <a href="{{html .Url}}" ><img src="{{html .Thumbnail.Url}}" border="0" width="75" height="75" align="right" style="border: 0pt none; margin: 0pt 0pt 5px 5px;" /></a>    
                         <h3 style="margin:0;font-size:14px;font-weight:bold;">
-                            <a style="color:#000; text-decoration:none;" href="{{.Url | html}}">{{.Title | html}}</a>
+                            <a style="color:#000; text-decoration:none;" href="{{html .Url}}">{{html .Title}}</a>
                         </h3>
                         <h6 style="color:#999;font:10px Arial,sans-serif;margin:0;">
-                            {{.Byline | html}}
+                            {{html .Byline}}
                          </h6>
                         <div style="font-size: 12px; margin-top: 0pt;">
 
-                            <p style="font-size:12px; margin:0 0 12px; color:#000">{{.Abstract | html }}</p>
+                            <p style="font-size:12px; margin:0 0 12px; color:#000">{{html .Abstract}}</p>
                         </div> 
                         <h6 style="color:#999;font:10px Arial,sans-serif;margin:0;">
-                        {{range .Des_facet}} {{ . | html }}
+                        {{range .Des_facet}} {{html .}}
                         {{end}}
                          </h6>
                     </div>
