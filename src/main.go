@@ -8,7 +8,7 @@ import (
     "encoding/csv"
     "os"
     "net/http"
-    "html/template"
+    "text/template"
     "bytes"
     "net/smtp"
     "io"
@@ -116,7 +116,7 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
     emails[0] = email
 
     localTime := time.Now()
-    dateStr   := localTime.Format("%a, %d %b %Y %H:%M:%S %z")
+    dateStr := localTime.Format(time.RFC1123Z)
     edata := new(EmailData)
     edata.FromAddress = mailer.Config.EnvelopeFrom
     edata.ToAddress   = email
