@@ -109,6 +109,8 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
         fmt.Printf("No suggestions for user %s\n", id)
         return 1
     }
+
+    // If there's no thumbnail, use a blank gif
     for recIndex := 0; recIndex < len(recResponse.Suggestions); recIndex++ {
         if len(recResponse.Suggestions[recIndex].Thumbnail.Url) == 0 {
             recResponse.Suggestions[recIndex].Thumbnail.Url = "http://graphics8.nytimes.com/images/misc/spacer.gif"
@@ -214,23 +216,29 @@ func readDataFile(dataFile string, recsChan chan []string, doneReadingChan chan 
         numLines++
     }
     
-    // FIXME
-    //doneReadingChan <- numLines
+    doneReadingChan <- numLines
 }
 
-func readResults(respChan chan int, allRequestsDoneChan chan int) {
-    // FIXME: get this from file reader
-    numLines := 1000
+func readResults(respChan chan int, allRequestsDoneChan chan int, doneReadingChan chan int) {
+    numLines := -1
 
     finishedRequests := 0 
     results := [...]int{0, 0}
     for {
-        //fmt.Println("hey!")
+
         result := <- respChan
-        //fmt.Println("hey! now")
         results[result]++
         finishedRequests++
-        if finishedRequests >= numLines {
+
+        // See if we've finished reading the input file yet
+        if numLines == -1 {
+            select {
+                case numLines = <- doneReadingChan:
+                default:
+            }
+        } 
+
+        if (numLines != -1) && (finishedRequests >= numLines) {
             fmt.Println(results)
             allRequestsDoneChan <- 1
             break
@@ -259,7 +267,7 @@ func main() {
 
     go readDataFile(dataFile, recsChan, doneReadingChan)
 
-    go readResults(respChan, allRequestsDoneChan)
+    go readResults(respChan, allRequestsDoneChan, doneReadingChan)
 
     <-allRequestsDoneChan
     // Infinite wait
