@@ -7,8 +7,6 @@
     h5.pubDate { color: gray; }
     div.elip {width: 65px;  margin:0px auto}
     blockquote {line-height: 1.8em;}
-    a:visited, a:link { color: black; text-decoration:none; }
-    a:active, a:hover { color: gray; text-decoration:none;  }
 
     div#gopher {
         background: url(http://golang.org/doc/gopher/frontpage.png) no-repeat;
@@ -23,7 +21,37 @@
 
 </style>
 
+<title>Rec-Go-mendations</title>
+
 <script language="javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+
+
+<script language="javascript">
+var email = "";
+var myinterval;
+$(function() {
+    $.getJSON("/user", function(json) {
+        email = json["Result"]["email"];
+        if (email == "Not logged in") {
+            $("#email-address").html("<a href='https://myaccount.nytimes.com/auth/login?URI=http://profileapi01.qprvt.nytimes.com:8080'>Please log in</a>");
+        } else {
+            $("#email-address").html(email);
+        }
+    });
+
+    $("#gogogo").click(function () {
+        $("#gogogolog").attr("src", "/send");
+        setInterval(function () {
+            $("#gogogolog").contents().scrollTop(
+                $("#gogogolog").contents().scrollTop() + 25
+            ),
+            500
+        });
+    });
+});
+
+</script>
+
 
 </head>
 
@@ -32,9 +60,16 @@
 <div id="main">
     <h1>Rec-Go-mendations</h1>
 
-    You are:  you
+    <p>
+        You are: <span id="email-address"></span>
+    </p>
 
-    <div id="gopher">
+    <p>
+        Send recommended articles via e-mail to 1000 fake users and yourself: <button id="gogogo">Let's Go!</button>
+    </p>
+
+    <iframe id="gogogolog" width="700" height="400"></iframe>
+
 
 </div>
 

@@ -1,7 +1,7 @@
 {
-    "RecUrl": "FIXME",
-    "UserUrl": "FIXME",
-    "SmtpServer": "FIXME",
-    "SmtpFrom": "FIXME",
-    "EnvelopeFrom": "FIXME",
+    "RecUrl": "http://rec-svc.stg.ec2.nytimes.com/?uid=%s",
+    "UserUrl": "http://profileapi.private.dev.nytimes.com/svc/profile/user/crackcookie.json",
+    "SmtpServer": "10.5.103.70:25",
+    "SmtpFrom": "bounce@ms3.lga2.nytimes.com",
+    "EnvelopeFrom": "NYTimes.com <nytdirect@nytimes.com>"
 }

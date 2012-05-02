@@ -7,21 +7,23 @@ import (
     "io/ioutil"
     "encoding/csv"
     "os"
-    "net/http"
     "text/template"
     "bytes"
-    "net/smtp"
     "io"
+    "net/smtp"
+    "net/http"
     "time"
+    "strconv"
 )
 
 const (
-    numRoutines = 30
+    numRoutines = 50
     chanBuff = 100
 )
 
 type RecConfig struct {
     RecUrl     string
+    UserUrl     string
     SmtpServer string
     SmtpFrom   string
     EnvelopeFrom   string
@@ -31,6 +33,7 @@ type RecMailer struct {
     Config   RecConfig
     Template *template.Template
     Http     *http.Client
+    DataFile string
 }
 
 type EmailData struct {
@@ -60,22 +63,26 @@ type RecResponse struct {
 
 }
 
-func (mailer *RecMailer) launchProcessor(recsChan chan []string, respChan chan int) {
+type CrackResp struct {
+    Status int
+    Result map[string]interface{}
+}
+
+type SendResp struct {
+    NumSent int
+    Seconds int64
+}
+
+func (mailer *RecMailer) launchProcessor(recsChan chan []string, respChan chan int, w io.Writer) {
     for {
         rec := <- recsChan
-        //fmt.Printf("Trying: %s, %s\n", rec[0], rec[1])
-        resp := mailer.processOneRecord(rec[0], rec[1])
+        resp := mailer.processOneRecord(rec[0], rec[1], w)
 
-        if resp == 0 {
-            fmt.Printf("Success for %s, %s\n", rec[0], rec[1])
-        }
-        //fmt.Println("hey! now thread")
         respChan <- resp
-        //fmt.Println("hey! now thread 2")
     }
 }
 
-func (mailer *RecMailer) processOneRecord(id string, email string) int {
+func (mailer *RecMailer) processOneRecord(id string, email string, w io.Writer) int {
     var (
         recResponse RecResponse
     )
@@ -84,7 +91,7 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
     resp, err := mailer.Http.Get(fullUrl)
 
     if err != nil {
-        fmt.Printf("Unable to get URL %s\n", fullUrl)
+        fmt.Fprintf(w, "Unable to get URL %s\n", fullUrl)
         fmt.Println(err)
         return 1
     }
@@ -93,20 +100,20 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
    
     readBytes, err := ioutil.ReadAll(resp.Body)
     if err != nil {
-        fmt.Printf("Unable to read from URL %s\n", fullUrl)
+        fmt.Fprintf(w, "Unable to read from URL %s\n", fullUrl)
         fmt.Println(err)
         return 1
     }
 
     err = json.Unmarshal(readBytes, &recResponse)
     if (err != nil) {
-        fmt.Printf("Unable to parse JSON http resp for user %s\n", id)
+        fmt.Fprintf(w, "Unable to parse JSON http resp for user %s\n", id)
         fmt.Println(err)
         return 1
     }
 
     if len(recResponse.Suggestions) == 0 {
-        fmt.Printf("No suggestions for user %s\n", id)
+        fmt.Fprintf(w, "No recommendations for user %s\n", id)
         return 1
     }
 
@@ -140,6 +147,7 @@ func (mailer *RecMailer) processOneRecord(id string, email string) int {
         return 1
     }
     
+    fmt.Fprintf(w, "Success for %s, %s\n", id, email)
     return 0
 }
 
@@ -240,38 +248,130 @@ func readResults(respChan chan int, allRequestsDoneChan chan int, doneReadingCha
 
         if (numLines != -1) && (finishedRequests >= numLines) {
             fmt.Println(results)
-            allRequestsDoneChan <- 1
+            allRequestsDoneChan <- finishedRequests
             break
         }
     }
 }
 
-func main() {
-
-    recConfig, dataFile, t := parseArgs()
-    client := new(http.Client)
-    mailer := new(RecMailer)
-
-    mailer.Config   = recConfig
-    mailer.Template = t
-    mailer.Http     = client
+func startMailing(mailer *RecMailer, email string, uid int, w io.Writer) (SendResp) {
     
     recsChan := make(chan []string, chanBuff)
     respChan := make(chan int, chanBuff)
     doneReadingChan := make(chan int)
     allRequestsDoneChan := make(chan int)
   
+    start := time.Now().Unix()
     for i := 0; i < numRoutines; i++ {
-        go mailer.launchProcessor(recsChan, respChan)
+        go mailer.launchProcessor(recsChan, respChan, w)
     }
 
-    go readDataFile(dataFile, recsChan, doneReadingChan)
+    go readDataFile(mailer.DataFile, recsChan, doneReadingChan)
 
     go readResults(respChan, allRequestsDoneChan, doneReadingChan)
 
-    <-allRequestsDoneChan
-    // Infinite wait
-    //<-make(chan interface{}); 
+    // Wait until everything is done
+    numSent := <-allRequestsDoneChan
+    
+    resp := mailer.processOneRecord(strconv.Itoa(uid), email, w)
+    end := time.Now().Unix()
 
-    //go readResults(respChan)
+    return SendResp{NumSent: numSent + 1, Seconds: end - start}
+}
+
+func getUserInfo(config *RecConfig, nyts string) (*CrackResp, error) {
+
+    // Create crack request json
+    crackRequest := map[string]string{ "nyts": nyts, "caller_id": "1234" }
+    b, encodeErr := json.Marshal(crackRequest)
+    if encodeErr != nil {
+        return nil, encodeErr
+    }
+
+    // Read results of crack
+    bReader := bytes.NewReader(b)
+    resp, httpErr := http.Post(config.UserUrl, "application/json", bReader)
+    if httpErr != nil {
+        return nil, httpErr
+    }
+
+    readBytes, readErr := ioutil.ReadAll(resp.Body)
+    if readErr != nil {
+        return nil, readErr
+    }
+
+
+    // Parse info out
+    var userInfo CrackResp
+    decodeErr := json.Unmarshal(readBytes, &userInfo)
+    if decodeErr != nil {
+        return nil, decodeErr
+    }
+
+    return &userInfo, nil
+}
+
+func userInfoHandler(w http.ResponseWriter, r *http.Request, mailer *RecMailer) {
+    nyts, err := r.Cookie("NYT-S")
+    config := mailer.Config
+   
+    errorResult := map[string]interface{} { "email": "Not logged in"}
+    errorResp := CrackResp{Status:500, Result: errorResult}
+    errorJson, _ := json.Marshal(errorResp)
+
+    if err != nil {
+        w.Write(errorJson)
+    } else {
+        userInfo, err := getUserInfo(&config, nyts.Value)
+        if err != nil {
+            w.Write(errorJson)
+        } else {
+            successJson, _ := json.Marshal(userInfo)
+            w.Write(successJson)
+        }
+    }
+}
+
+func sendHandler(w http.ResponseWriter, r *http.Request, mailer *RecMailer) {
+    nyts, _ := r.Cookie("NYT-S")
+    userInfo, _ := getUserInfo(&mailer.Config, nyts.Value)
+
+    email := userInfo.Result["email"].(string)
+    uid := int(userInfo.Result["_UID"].(float64))
+
+    sendResp := startMailing(mailer, email, uid, w)
+    sendJson, _ := json.Marshal(sendResp)
+    w.Write(sendJson)
+}
+
+
+func viewHandler(w http.ResponseWriter, r *http.Request, mailer *RecMailer) {
+    t,_ := template.ParseFiles("templates/index.html")
+
+    t.Execute(w, nil)
+}
+
+func makeHandler(fn func(http.ResponseWriter, *http.Request, *RecMailer), mailer *RecMailer) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        fn(w, r, mailer)
+    }
+}
+
+func main() {
+    recConfig, dataFile, t := parseArgs()
+    client := new(http.Client)
+    mailer := new(RecMailer)
+
+    fmt.Println("Using data file: ", dataFile)
+
+    mailer.Config   = recConfig
+    mailer.Template = t
+    mailer.Http     = client
+    mailer.DataFile = dataFile
+
+
+    http.HandleFunc("/", makeHandler(viewHandler, mailer))
+    http.HandleFunc("/user", makeHandler(userInfoHandler, mailer))
+    http.HandleFunc("/send", makeHandler(sendHandler, mailer))
+    http.ListenAndServe(":8080", nil)
 }
