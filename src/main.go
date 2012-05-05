@@ -17,7 +17,7 @@ import (
 )
 
 const (
-    numRoutines = 50
+    numRoutines = 100
     chanBuff = 100
 )
 
@@ -273,7 +273,7 @@ func startMailing(mailer *RecMailer, email string, uid int, w io.Writer) (SendRe
     // Wait until everything is done
     numSent := <-allRequestsDoneChan
     
-    resp := mailer.processOneRecord(strconv.Itoa(uid), email, w)
+    mailer.processOneRecord(strconv.Itoa(uid), email, w)
     end := time.Now().Unix()
 
     return SendResp{NumSent: numSent + 1, Seconds: end - start}
