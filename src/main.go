@@ -17,8 +17,9 @@ import (
 )
 
 const (
-    numRoutines = 100
-    chanBuff = 100
+    numRoutines = 20
+    recsChanBuff = 1000
+    respChanBuff = 500
 )
 
 type RecConfig struct {
@@ -42,6 +43,7 @@ type EmailData struct {
     Subject     string
     Date        string
     RecResponse RecResponse
+    HumanDate   string 
 }
 
 type RecSuggestions struct {
@@ -74,34 +76,42 @@ type SendResp struct {
 }
 
 func (mailer *RecMailer) launchProcessor(recsChan chan []string, respChan chan int, w io.Writer) {
+
+    tr := &http.Transport{
+            DisableKeepAlives: false,
+            DisableCompression: false,
+    }
+    httpClient := &http.Client{Transport: tr}
+
+    smtpClient, _ := smtp.Dial(mailer.Config.SmtpServer)
     for {
         rec := <- recsChan
-        resp := mailer.processOneRecord(rec[0], rec[1], w)
+        resp := mailer.processOneRecord(rec[0], rec[1], w, smtpClient, httpClient)
 
         respChan <- resp
     }
 }
 
-func (mailer *RecMailer) processOneRecord(id string, email string, w io.Writer) int {
+func (mailer *RecMailer) processOneRecord(id string, email string, w io.Writer, smtpClient *smtp.Client, httpClient *http.Client) int {
     var (
         recResponse RecResponse
     )
 
     fullUrl := fmt.Sprintf(mailer.Config.RecUrl, id)
-    resp, err := mailer.Http.Get(fullUrl)
+    resp, err := httpClient.Get(fullUrl)
 
     if err != nil {
         fmt.Fprintf(w, "Unable to get URL %s\n", fullUrl)
         fmt.Println(err)
+        resp.Body.Close()
         return 1
     }
     
-    defer resp.Body.Close()
    
     readBytes, err := ioutil.ReadAll(resp.Body)
+    resp.Body.Close()
     if err != nil {
         fmt.Fprintf(w, "Unable to read from URL %s\n", fullUrl)
-        fmt.Println(err)
         return 1
     }
 
@@ -124,8 +134,8 @@ func (mailer *RecMailer) processOneRecord(id string, email string, w io.Writer) 
         }
     }
 
-    emails := make([]string, 1)
-    emails[0] = email
+    //emails := make([]string, 1)
+    //emails[0] = email
 
     localTime := time.Now()
     dateStr := localTime.Format(time.RFC1123Z)
@@ -135,17 +145,49 @@ func (mailer *RecMailer) processOneRecord(id string, email string, w io.Writer) 
     edata.Subject     = "Recommendations for you"
     edata.RecResponse = recResponse
     edata.Date        = dateStr
+    edata.HumanDate   = fmt.Sprintf("%s %d, %d", localTime.Month(), 
+        localTime.Day(), localTime.Year())
 
     buff := new(bytes.Buffer)
     mailer.Template.Execute(buff, edata)
 
-    err = smtp.SendMail(mailer.Config.SmtpServer, nil, mailer.Config.SmtpFrom, emails, buff.Bytes())
 
+    //err = smtp.SendMail(mailer.Config.SmtpServer, nil, mailer.Config.SmtpFrom, emails, buff.Bytes())
+
+    errReset := smtpClient.Reset()
+    if errReset != nil {
+        fmt.Printf("There was an error sending for user %s\n", id)
+        fmt.Println(errReset)
+        return 1
+    }
+    errMail := smtpClient.Mail(mailer.Config.SmtpFrom)
+    if errMail != nil {
+        fmt.Printf("There was an error sending for user %s\n", id)
+        fmt.Println(errMail)
+        return 1
+    }
+    errRcpt := smtpClient.Rcpt(email)
+    if errRcpt != nil {
+        fmt.Printf("There was an error sending for user %s\n", id)
+        fmt.Println(errRcpt)
+        return 1
+    }
+    smtpWriter, errData := smtpClient.Data()
+    if errData != nil {
+        fmt.Printf("There was an error sending for user %s\n", id)
+        fmt.Println(errData)
+        return 1
+    }
+    smtpWriter.Write(buff.Bytes())
+    smtpWriter.Close()
+
+    /*
     if err != nil {
         fmt.Printf("There was an error sending for user %s\n", id)
         fmt.Println(err)
         return 1
     }
+    */
     
     fmt.Fprintf(w, "Success for %s, %s\n", id, email)
     return 0
@@ -256,8 +298,8 @@ func readResults(respChan chan int, allRequestsDoneChan chan int, doneReadingCha
 
 func startMailing(mailer *RecMailer, email string, uid int, w io.Writer) (SendResp) {
     
-    recsChan := make(chan []string, chanBuff)
-    respChan := make(chan int, chanBuff)
+    recsChan := make(chan []string, recsChanBuff)
+    respChan := make(chan int, respChanBuff)
     doneReadingChan := make(chan int)
     allRequestsDoneChan := make(chan int)
   
@@ -272,8 +314,15 @@ func startMailing(mailer *RecMailer, email string, uid int, w io.Writer) (SendRe
 
     // Wait until everything is done
     numSent := <-allRequestsDoneChan
-    
-    mailer.processOneRecord(strconv.Itoa(uid), email, w)
+   
+    tr := &http.Transport{
+            DisableKeepAlives: false,
+            DisableCompression: false,
+    }
+    httpClient := &http.Client{Transport: tr}
+
+    smtpClient, _ := smtp.Dial(mailer.Config.SmtpServer)
+    mailer.processOneRecord(strconv.Itoa(uid), email, w, smtpClient, httpClient)
     end := time.Now().Unix()
 
     return SendResp{NumSent: numSent + 1, Seconds: end - start}
@@ -369,7 +418,11 @@ func main() {
     mailer.Http     = client
     mailer.DataFile = dataFile
 
-
+    //cpuWriter, _ := os.Create("myprof.txt")
+    //pprof.StartCPUProfile(cpuWriter)
+    //startMailing(mailer, "bseitznyt@gmail.com", 60225968, os.NewFile(uintptr(syscall.Stdout), "/dev/stdout"))
+    //pprof.StopCPUProfile()
+    
     http.HandleFunc("/", makeHandler(viewHandler, mailer))
     http.HandleFunc("/user", makeHandler(userInfoHandler, mailer))
     http.HandleFunc("/send", makeHandler(sendHandler, mailer))

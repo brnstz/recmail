@@ -34,8 +34,14 @@ $(function() {
         email = json["Result"]["email"];
         if (email == "Not logged in") {
             $("#email-address").html("<a href='https://myaccount.nytimes.com/auth/login?URI=http://profileapi01.qprvt.nytimes.com:8080'>Please log in</a>");
+            $("#gogogo").attr("disabled", "disabled");
+            $("#gogogo").disable(true);
+        } else if (email === undefined) {
+            $("#email-address").html("<a href='https://myaccount.nytimes.com/auth/login?URI=http://profileapi01.qprvt.nytimes.com:8080'>Please log in</a>");
+            $("#gogogo").attr("disabled", "disabled");
+            $("#gogogo").disable(true);
         } else {
-            $("#email-address").html(email);
+            $("#email-address").html(email + " <a href='https://myaccount.nytimes.com/auth/login?URI=http://profileapi01.qprvt.nytimes.com:8080'>Login as other user</a>");
         }
     });
 
@@ -65,7 +71,7 @@ $(function() {
     </p>
 
     <p>
-        Send recommended articles via e-mail to 1000 fake users and yourself: <button id="gogogo">Let's Go!</button>
+        Send recommended articles via e-mail to 500 fake users and yourself: <button id="gogogo">Let's Go!</button>
     </p>
 
     <iframe id="gogogolog" width="700" height="400"></iframe>
